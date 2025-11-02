@@ -16,7 +16,7 @@ def validate_upload_pdf(file_input):
     if file_input is None or file_input.filename.strip()=="":
         raise ValueError("Missing file")
     #check pdf header
-    head = file_input.strea.read(5)
+    head = file_input.stream.read(5)
     file_input.stream.seek(0)
     if head != b"%PDF-":
         raise ValueError("Not a valid PDF (missing %PDF- header)")

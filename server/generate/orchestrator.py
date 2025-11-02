@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from server.generate.validators import scrub_orphans, has_any_citation
 from server.generate.granite_adapter import call_granite
-
+'''add inititializer'''
 def build_prompt(question: str, snippets: List[Dict[str,Any]]) -> str:
     ctx="\n".join([f"[{i+1}] {s['title']} (p.{s.get('page',1)}): {s['text'][:800]}" for i,s in enumerate(snippets)])
     return (f"You are a medical research assistant. Answer ONLY from the snippets and cite them as [n]. "
@@ -9,7 +9,8 @@ def build_prompt(question: str, snippets: List[Dict[str,Any]]) -> str:
 
 def synthesize(question: str, snippets: List[Dict[str,Any]]) -> str:
     # Try Granite first (no-op until wired)
-    ans = call_granite(question, snippets)
+    prompt_str = build_prompt(question, snippets)
+    ans = call_granite(prompt_str)
     if not ans:
         # Deterministic fallback for local dev
         lines=[]
