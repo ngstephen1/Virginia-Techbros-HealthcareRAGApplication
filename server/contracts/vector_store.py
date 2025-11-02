@@ -1,0 +1,6 @@
+from typing import Protocol, List, Dict, Any
+from server/contracts/types import Chunk, Hit
+
+class VectorStore(Protocol):
+    def upsert(self, chunks: List[Chunk]) -> None: ...
+    def search(self, query_vec: List[float], top_k: int = 20) -> List[Hit]: ...
