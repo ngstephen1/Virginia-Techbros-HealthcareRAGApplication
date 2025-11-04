@@ -20,3 +20,10 @@ def hybrid_retrieve(question: str, embedder, store, k: int = 8) -> List[Dict[str
     # assign stable cite_ids used in answer text
     for i, h in enumerate(hits, start=1): h["cite_id"] = i
     return hits
+
+def retrieve(query: str, top_k: int = 5, filters=None) -> List[Dict[str, Any]]:
+    from server.core import config  # lazy import to avoid cycles
+    embedder = config.get_embedder()
+    store = config.get_store()
+    # ignore filters for now; wire them into store.search later if you need
+    return hybrid_retrieve(query, embedder, store, k=top_k)

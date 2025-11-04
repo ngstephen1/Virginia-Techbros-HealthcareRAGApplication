@@ -2,10 +2,13 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from pypdf import PdfReader
+from server.ingest import save_only
+from server.generate import answer 
+from server.retrieval import hybrid
+from pathlib import Path
 
 '''loads environment variables from .env file'''
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 app = Flask (__name__)
 '''CORS is needed when Flask application is hosted on different domain'''
 CORS(app)
@@ -39,6 +42,22 @@ def validate_query(user_query):
         raise ValueError ("Field prompt is required")
     top_k = user_query.get("top_k", 5)
 
+@app.post("/dev/summarize_hits")
+def dev_summarize_hits():
+    body = request.get_json(force=True, silent=False)
+
+    question = str(body.get("prompt", "")).strip()
+    hits = body.get("hits", [])
+    if not question or not isinstance(hits, list):
+        return jsonify({"error": "Provide prompt and hits[]"}), 400
+
+    # make sure cite_id exists for your _citations() logic
+    for i, h in enumerate(hits, start=1):
+        h.setdefault("cite_id", i)
+
+    result = answer.synthesize_with_citations(question, hits)
+    return jsonify(result), 200
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
@@ -55,32 +74,41 @@ def chatbot():
 def ingest_document():
     file = request.files.get("file")
     validate_upload_pdf(file)
+    try:
+        result = save_only.ingest(file.stream, filename= file.filename)
+        resp = {
+            "id": result.get("doc_id") or result.get("id") or "unknown",
+            "title": result.get("title", file.filename),
+            "page_count": int(result.get("page_couunt",0)),
+            "chunk_count": int(result.get("chunk_count",0)),
+        }
+        return jsonify(resp), 201
+    except Exception as e:
+        return jsonify({"error": "ingestion failed", "detail":str(e)}), 500
 
     # TODO: later call orchestrator.ingest_document(file)
     # For now, return a stub so FE can proceed.
-    return jsonify({
-        "id": "stub-doc-id",
-        "title": file.filename,
-        "page_count": 0,        # will be real later
-        "chunk_count": 0        # will be real later
-    }), 201
 
-@app.route("/ingest_user_query", methods = ["POST"])
+@app.post("/ingest_user_query")
 def ingest_user_query():
     payload = request.get_json(force=True, silent=False)
     validate_query(payload)
 
-    prompt = payload["prompt"]
+    question = payload["prompt"]
     top_k = payload.get("top_k", 5)
     filters = payload.get("filters")
     conversation_id = payload.get("conversation_id")
-
+    hits = hybrid.retrieve (question, top_k=top_k, filters=filters)
+    for i, h in enumerate(hits, start=1):
+        h.setdefault("cite_id", i)
+    
+    result = answer._answer_from_snippets(question, hits)
     # TODO: later call orchestrator.answer_query(...)
     # For now, deterministic stub so UI can develop:
     return jsonify({
-        "answer": f"(stubbed) You asked: {prompt}",
-        "citations": [],
-        "retrieval": {"top_k": top_k, "filters": filters, "conversation_id": conversation_id},
+        "answer": result.get("anser", ""),
+        "citations": result.get("citations",[]),
+        "retrieval": {"top_k": top_k, "filters": filters, "conversation_id":payload.get("conversation_id")},
         "usage": {}
     }), 200
 

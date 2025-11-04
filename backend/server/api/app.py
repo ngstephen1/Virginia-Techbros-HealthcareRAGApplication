@@ -5,6 +5,7 @@ from server.generate.answer import synthesize_with_citations
 from server.vector.mock_store import get_store, get_embedder  # dev-only mock
 from server.ingest.save_only import save_pdfs                 # no chunking: Raf owns it
 
+
 app = Flask(__name__)
 
 @app.get("/health")
