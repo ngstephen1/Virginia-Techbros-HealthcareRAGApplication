@@ -2,6 +2,12 @@ import json, glob
 from pathlib import Path
 from typing import List, Dict, Any
 from server.embeddings.wx_adapter import Embedder
+from pymilvus import MilvusClient, DataType
+
+# --- Milvus Configuration ---
+MILVUS_DB_PATH = "data/index/medical_rag.db"
+COLLECTION_NAME = "medical_papers"
+VECTOR_DIMENSION = 768
 
 OUT = Path("data/index/memory_index.json")
 
