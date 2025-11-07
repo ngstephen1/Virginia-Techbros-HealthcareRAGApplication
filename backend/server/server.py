@@ -2,9 +2,9 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from server.ingest import save_only
-from server.generate import answer 
-from server.retrieval import hybrid
+from backend.server.ingest import save_only
+from backend.server.generate import answer 
+from backend.server.retrieval import hybrid
 from pathlib import Path
 
 '''loads environment variables from .env file'''
