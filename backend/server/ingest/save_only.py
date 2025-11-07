@@ -2,14 +2,20 @@ import uuid
 from pathlib import Path
 from typing import List
 from werkzeug.datastructures import FileStorage
-from server.core.config import cfg
+from werkzeug.utils import secure_filename
+from backend.server.core.config import cfg
 
 def save_pdfs(files: List[FileStorage]):
-    Path(cfg.DOC_STORE).mkdir(parents=True, exist_ok=True)
+    target = Path(cfg.DOC_STORE)
+    target.mkdir(parents=True, exist_ok=True)
+
     ids=[]
     for f in files:
+        if not isinstance(f, FileStorage):
+            raise TypeError(f"Expected FileStorage, got {type(f).__name__}")
         doc_id = uuid.uuid4().hex[:8]
-        out = Path(cfg.DOC_STORE, f"{doc_id}.pdf")
-        f.save(out)
+        _client_name = secure_filename(f.filename or "upload.pdf")
+        out = target / f"{doc_id}.pdf"
+        f.save(str(out))
         ids.append(doc_id)
     return ids

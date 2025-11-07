@@ -2,9 +2,12 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+from pypdf import PdfReader
 from backend.server.ingest import save_only
 from backend.server.generate import answer 
 from backend.server.retrieval import hybrid
+from backend.server.core.config import cfg
+from backend.server import orchestrator
 from pathlib import Path
 
 '''loads environment variables from .env file'''
@@ -28,10 +31,15 @@ def validate_upload_pdf(file_input):
     try:
         reader = PdfReader(file_input.stream)
         _ = len(reader.pages)  
+
         file_input.stream.seek(0)
-    except Exception as e:
-        raise ValueError("PDF could not be parsed") from e
     
+    except PdfReadError as e:
+        file_input.stream.seek(0)
+        raise ValueError(f"PDF parse error: {e}") from e
+    except Exception as e:
+        file_input.stream.seek(0)
+        raise ValueError(f"PDF parse error: {type(e).__name__}: {e}") from e
 def validate_query(user_query):
     #validate the JSON body for RAG queries
 
@@ -73,21 +81,38 @@ def chatbot():
 @app.route("/ingest_document", methods = ["POST"])
 def ingest_document():
     file = request.files.get("file")
-    validate_upload_pdf(file)
-    try:
-        result = save_only.ingest(file.stream, filename= file.filename)
-        resp = {
-            "id": result.get("doc_id") or result.get("id") or "unknown",
-            "title": result.get("title", file.filename),
-            "page_count": int(result.get("page_couunt",0)),
-            "chunk_count": int(result.get("chunk_count",0)),
-        }
-        return jsonify(resp), 201
-    except Exception as e:
-        return jsonify({"error": "ingestion failed", "detail":str(e)}), 500
+    doc_id_from_client = request.form.get("doc_id")
 
-    # TODO: later call orchestrator.ingest_document(file)
-    # For now, return a stub so FE can proceed.
+    
+    try:
+        #validate pdf upload
+        validate_upload_pdf(file)
+        #pass document to ingestion pipeline
+        ids = save_only.save_pdfs([file])
+        if not ids:
+            return jsonify({"error": "ingestion_failed", "detail": "No ID returned from save_pdfs"}), 500
+        
+        doc_id = ids[0]
+        out_path = Path(cfg.DOC_STORE)/ f"{doc_id}.pdf"
+
+        page_count =0
+        try:
+            with open(out_path, "rb") as fh:
+                page_count = len(PdfReader(fh).pages)
+        except Exception:
+            pass
+
+        return jsonify({
+            "id": doc_id,
+            "title": file.filename,
+            "page_count": int(page_count),
+            "chunk_count": 0
+          
+        }),201
+    except ValueError as e:
+        return jsonify({"error": "bad_request", "detail": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": "ingestion_failed", "detail": str(e)}), 500
 
 @app.post("/ingest_user_query")
 def ingest_user_query():
@@ -101,14 +126,24 @@ def ingest_user_query():
     hits = hybrid.retrieve (question, top_k=top_k, filters=filters)
     for i, h in enumerate(hits, start=1):
         h.setdefault("cite_id", i)
+        h.setdefault("title", h.get("doc_title") or h.get("filename") or "")
+        h.setdefault("page", h.get("page") or 1)
+        h.setdefault("text", h.get("text") or h.get("chunk") or "")
     
-    result = answer._answer_from_snippets(question, hits)
-    # TODO: later call orchestrator.answer_query(...)
-    # For now, deterministic stub so UI can develop:
+    answer_text = orchestrator.synthesize(question, hits)
+
     return jsonify({
-        "answer": result.get("anser", ""),
-        "citations": result.get("citations",[]),
-        "retrieval": {"top_k": top_k, "filters": filters, "conversation_id":payload.get("conversation_id")},
+        "answer": answer_text,
+        "citations": [
+            {"cite_id": h["cite_id"], "title": h["title"], "page": h["page"]}
+            for h in hits
+        ],
+        "retrieval": {
+            "top_k": top_k,
+            "filters": filters,
+            "conversation_id": conversation_id,
+            "hit_count": len(hits)
+        },
         "usage": {}
     }), 200
 
