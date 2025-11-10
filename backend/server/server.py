@@ -49,6 +49,10 @@ def validate_query(user_query):
     if not prompt:
         raise ValueError ("Field prompt is required")
     top_k = user_query.get("top_k", 5)
+    filters = user_query.get("filters") or None
+    conversation_id = user_query.get("conversation_id")
+
+    return prompt, top_k, filters, conversation_id
 
 @app.post("/dev/summarize_hits")
 def dev_summarize_hits():
@@ -129,7 +133,7 @@ def ingest_user_query():
         h.setdefault("title", h.get("doc_title") or h.get("filename") or "")
         h.setdefault("page", h.get("page") or 1)
         h.setdefault("text", h.get("text") or h.get("chunk") or "")
-    
+     #Ask watsonx.ai via orchestrator
     answer_text = orchestrator.synthesize(question, hits)
 
     return jsonify({
