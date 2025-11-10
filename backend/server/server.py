@@ -76,7 +76,7 @@ def dev_summarize_hits():
     except Exception as e:
         return jsonify({"error": "llm_error", "detail": str(e)}), 500
     
-    
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
@@ -127,36 +127,44 @@ def ingest_document():
 
 @app.post("/ingest_user_query")
 def ingest_user_query():
-    payload = request.get_json(force=True, silent=False)
-    validate_query(payload)
+    # 1) Parse and validate request body
+    try:
+        payload = request.get_json(force=True, silent=False)
+        question, top_k, filters, conversation_id = validate_query(payload)
+    except ValueError as e:
+        return jsonify({"error": "bad_request", "detail": str(e)}), 400
+    except Exception:
+        return jsonify({"error": "bad_request", "detail": "Invalid JSON body"}), 400
 
-    question = payload["prompt"]
-    top_k = payload.get("top_k", 5)
-    filters = payload.get("filters")
-    conversation_id = payload.get("conversation_id")
-    hits = hybrid.retrieve (question, top_k=top_k, filters=filters)
-    for i, h in enumerate(hits, start=1):
-        h.setdefault("cite_id", i)
-        h.setdefault("title", h.get("doc_title") or h.get("filename") or "")
-        h.setdefault("page", h.get("page") or 1)
-        h.setdefault("text", h.get("text") or h.get("chunk") or "")
-     #Ask watsonx.ai via orchestrator
-    answer_text = orchestrator.synthesize(question, hits)
+    # 2) Run retrieval + LLM, with error handling
+    try:
+        # Retrieve from vector DB / hybrid search
+        hits = hybrid.retrieve(question, top_k=top_k, filters=filters)
 
-    return jsonify({
-        "answer": answer_text,
-        "citations": [
-            {"cite_id": h["cite_id"], "title": h["title"], "page": h["page"]}
-            for h in hits
-        ],
-        "retrieval": {
-            "top_k": top_k,
-            "filters": filters,
-            "conversation_id": conversation_id,
-            "hit_count": len(hits)
-        },
-        "usage": {}
-    }), 200
+        for i, h in enumerate(hits, start=1):
+            h.setdefault("cite_id", i)
+            h.setdefault("title", h.get("doc_title") or h.get("filename") or "")
+            h.setdefault("page", h.get("page") or 1)
+            h.setdefault("text", h.get("text") or h.get("chunk") or "")
+        #Ask watsonx.ai via orchestrator
+        answer_text = orchestrator.synthesize(question, hits)
+
+        return jsonify({
+            "answer": answer_text,
+            "citations": [
+                {"cite_id": h["cite_id"], "title": h["title"], "page": h["page"]}
+                for h in hits
+            ],
+            "retrieval": {
+                "top_k": top_k,
+                "filters": filters,
+                "conversation_id": conversation_id,
+                "hit_count": len(hits)
+            },
+            "usage": {}
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "query_failed", "detail": str(e)}), 500
 
 @app.route("/search_vector_db", methods = ["POST"])
 def search_vector_db():
