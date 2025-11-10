@@ -61,15 +61,22 @@ def dev_summarize_hits():
     question = str(body.get("prompt", "")).strip()
     hits = body.get("hits", [])
     if not question or not isinstance(hits, list):
-        return jsonify({"error": "Provide prompt and hits[]"}), 400
+        return jsonify({"error": "Provide 'prompt' and 'hits'[]"}), 400
 
-    # make sure cite_id exists for your _citations() logic
     for i, h in enumerate(hits, start=1):
+        # ensure required fields exist for _citations()
         h.setdefault("cite_id", i)
+        h.setdefault("doc_id", f"dev-doc-{i}")
+        h.setdefault("page", 1)
+        h.setdefault("text", "")
 
-    result = answer.synthesize_with_citations(question, hits)
-    return jsonify(result), 200
-
+    try:
+        result = answer.synthesize_with_citations(question, hits)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": "llm_error", "detail": str(e)}), 500
+    
+    
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
