@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from .interfaces import VectorStore, Chunk  # Follow the protocol
 from .wx_adapter import WatsonEmbedder
 
+
 # --- Milvus Configuration ---
 MILVUS_DB_PATH = "data/index/medical_rag.db"
 COLLECTION_NAME = "medical_papers"
