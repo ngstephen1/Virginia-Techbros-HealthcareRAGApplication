@@ -6,7 +6,7 @@ load_dotenv()
 
 class Cfg:
     FLASK_ENV = os.getenv("FLASK_ENV", "production")
-    PORT = os.getenv("PORT", "5001")
+    PORT = os.getenv("PORT", "8000") # Changed to 8000 to match your Docker command
     INDEX_PATH = os.getenv("INDEX_PATH", "./data/index")
     # This path is correct for save_only.py
     DOC_STORE  = os.getenv("DOC_STORE", "./data/medical_papers")
