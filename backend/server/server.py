@@ -8,6 +8,7 @@ from backend.server.generate import answer
 from backend.server.retrieval import hybrid
 from backend.server.core.config import cfg
 from backend.server import orchestrator
+from backend.server.generate.granite_adapter import call_granite
 from pathlib import Path
 
 '''loads environment variables from .env file'''
@@ -53,6 +54,20 @@ def validate_query(user_query):
     conversation_id = user_query.get("conversation_id")
 
     return prompt, top_k, filters, conversation_id
+
+@app.route("/watson_hello", methods=["GET"])
+def watson_hello():
+    try:
+        prompt = "Say a short, friendly hello from the Granite model."
+        # Direct call to Granite – no RAG, no citations logic
+        result = call_granite(prompt, [])
+        if not result:
+            # Granite returned None – probably misconfig or network issue
+            result = "Granite call failed or is not fully configured, but the backend is running."
+        return jsonify({"message": result}), 200
+    except Exception as e:
+        print("Error in /watson_hello:", e, flush=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.post("/dev/summarize_hits")
 def dev_summarize_hits():
