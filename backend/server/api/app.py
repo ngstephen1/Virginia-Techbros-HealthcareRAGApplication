@@ -2,8 +2,9 @@ from flask import Flask, request, jsonify
 from server.core.config import cfg
 from server.retrieval.hybrid import hybrid_retrieve
 from server.generate.answer import synthesize_with_citations
-from server.vector.mock_store import get_store, get_embedder  # dev-only mock
-from server.ingest.save_only import save_pdfs                 # no chunking: Raf owns it
+from server.ingest.save_only import save_pdfs 
+from backend.server.vector.wx_adapter import WatsonEmbedder
+from backend.server.vector.milvus_store import MilvusStore              
 
 
 app = Flask(__name__)
@@ -39,3 +40,18 @@ def create_app(): return app
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(cfg.PORT))
+
+
+# --- Initialize your classes ONCE ---
+# This is efficient. The server creates one instance and reuses it.
+print("Initializing application-wide WatsonEmbedder...")
+_embedder_instance = WatsonEmbedder()
+print("Initializing application-wide MilvusStore...")
+_store_instance = MilvusStore(embedder=_embedder_instance)
+
+# --- Define the get() functions the app needs ---
+def get_embedder():
+    return _embedder_instance
+
+def get_store():
+    return _store_instance
