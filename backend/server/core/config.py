@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from backend.server.vector.wx_adapter import WatsonEmbedder
 from backend.server.vector.milvus_store import MilvusStore
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 class Cfg:
     FLASK_ENV = os.getenv("FLASK_ENV", "production")
