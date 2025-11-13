@@ -1,14 +1,13 @@
 from pymilvus import MilvusClient, DataType
 from typing import List, Dict, Any
-from .interfaces import VectorStore, Chunk  # Follow the protocol
 from .wx_adapter import WatsonEmbedder
 
 
 # --- Milvus Configuration ---
-MILVUS_DB_PATH = "data/index/medical_rag.db"
+MILVUS_DB_PATH = "backend/data/index/medical_rag.db"
 COLLECTION_NAME = "medical_papers"
 
-class MilvusStore(VectorStore):
+class MilvusStore:
     
     def __init__(self, embedder: WatsonEmbedder):
         print(f"Initializing MilvusStore. Connecting to: {MILVUS_DB_PATH}")
@@ -23,15 +22,15 @@ class MilvusStore(VectorStore):
 
     def _create_collection(self):
         schema = MilvusClient.create_schema(auto_id=True, enable_dynamic_field=False)
-        schema.add_field(field_name="id", dtype=DataType.INT64, is_primary=True)
-        schema.add_field(field_name="vector", dtype=DataType.FLOAT_VECTOR, dim=self.dimension)
-        schema.add_field(field_name="doc_id", dtype=DataType.VARCHAR, max_length=1000)
-        schema.add_field(field_name="page", dtype=DataType.INT64)
-        schema.add_field(field_name="chunk_id", dtype=DataType.VARCHAR, max_length=1000)
-        schema.add_field(field_name="title", dtype=DataType.VARCHAR, max_length=1000)
-        schema.add_field(field_name="text", dtype=DataType.VARCHAR, max_length=65535)
+        schema.add_field("id", DataType.INT64, is_primary=True)
+        schema.add_field("vector", DataType.FLOAT_VECTOR, dim=self.dimension)
+        schema.add_field("doc_id", DataType.VARCHAR, max_length=1000)
+        schema.add_field("page", DataType.INT64)
+        schema.add_field("chunk_id", DataType.VARCHAR, max_length=1000)
+        schema.add_field("title", DataType.VARCHAR, max_length=1000)
+        schema.add_field("text", DataType.VARCHAR, max_length=65535)
 
-        self.client.create_collection(COLLECTION_NAME, schema)
+        self.client.create_collection(collection_name=COLLECTION_NAME,schema=schema)
         
         index_params = self.client.prepare_index_params(
             field_name="vector", metric_type="COSINE", index_type="AUTOINDEX"
@@ -62,7 +61,7 @@ class MilvusStore(VectorStore):
             output_fields=["doc_id", "page", "title", "text", "chunk_id"]
         )
         
-        hits = []
+        hits:  List[Dict[str, Any]] = []
         for result in search_res[0]: # Results for the first (only) query vector
             hit_data = result['entity']
             hit_data["score"] = result['distance'] # 'distance' is the score

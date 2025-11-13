@@ -3,13 +3,12 @@ import requests
 from typing import List
 from dotenv import load_dotenv
 from pathlib import Path
-from .interfaces import Embedder  # Follow the protocol
 
 # Load .env variables from backend/server/.env
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path) 
 
-class WatsonEmbedder(Embedder):
+class WatsonEmbedder:
     """
     This class implements the 'Embedder' protocol using the IBM watsonx.ai API.
     """

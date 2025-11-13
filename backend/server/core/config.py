@@ -6,10 +6,10 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '..', '.en
 
 class Cfg:
     FLASK_ENV = os.getenv("FLASK_ENV", "production")
-    PORT = os.getenv("PORT", "8000") # Changed to 8000 to match your Docker command
-    INDEX_PATH = os.getenv("INDEX_PATH", "./data/index")
+    PORT = os.getenv("PORT", "8000")
+    INDEX_PATH = os.getenv("INDEX_PATH", "./backend/data/index")
     # This path is correct for save_only.py
-    DOC_STORE  = os.getenv("DOC_STORE", "./data/medical_papers")
+    DOC_STORE  = os.getenv("DOC_STORE", "./backend/data/medical_papers")
     # This EMBED_MODEL is for the mock store. Your real adapter overrides this.
     EMBED_MODEL = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
 
