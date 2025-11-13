@@ -4,7 +4,7 @@ from server.retrieval.hybrid import hybrid_retrieve
 from server.generate.answer import synthesize_with_citations
 from server.ingest.save_only import save_pdfs 
 from backend.server.vector.wx_adapter import WatsonEmbedder
-from backend.server.vector.milvus_store import MilvusStore                # no chunking: Raf owns it
+from backend.server.vector.milvus_store import MilvusStore              
 
 
 app = Flask(__name__)
