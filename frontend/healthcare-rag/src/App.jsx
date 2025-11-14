@@ -71,7 +71,18 @@ export default function App() {
   const responseEndRef = useRef(null);
   
   // Custom hook for all backend data access
-  const { uploadedDocs, conversations, messages, fetchData, setConversations, setMessages } = useDataFetcher(activeConversationId);
+  const { uploadedDocs, conversations, messages, fetchData, setMessages } = useDataFetcher(activeConversationId);
+
+  const startNewConversation = useCallback(async () => {
+    try {
+        const newConv = await startNewConversationApi("New Conversation");
+        setActiveConversationId(newConv.conversationId);
+        setActiveTab("chat");
+        fetchData(); // Refresh conversation list
+    } catch (error) {
+        console.error("Failed to start new conversation:", error);
+    }
+  }, [fetchData]);
 
   // Handles initial conversation creation/loading
   useEffect(() => {
@@ -82,7 +93,7 @@ export default function App() {
       // If no conversations exist, create the first one immediately
       startNewConversation();
     }
-  }, [conversations, activeConversationId]);
+  }, [conversations, activeConversationId, startNewConversation]);
 
   // Scrolls to bottom on new message
   useEffect(() => {
@@ -91,18 +102,6 @@ export default function App() {
 
 
   // --- Database/API Handlers ---
-
-  const startNewConversation = async () => {
-    try {
-        const newConv = await startNewConversationApi("New Conversation");
-        setActiveConversationId(newConv.conversationId);
-        setActiveTab("chat");
-        fetchData(); // Refresh conversation list
-    } catch (error) {
-        console.error("Failed to start new conversation:", error);
-    }
-  }
-
   const loadConversation = (conversationId) => {
     setActiveConversationId(conversationId);
     setActiveTab("chat");
@@ -132,25 +131,18 @@ export default function App() {
     }
 
     setIsProcessing(true);
-    for (const file of files) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        if (event.target.result.length > 0) {
-           await uploadDocument({
-            name: file.name,
-            content: event.target.result, // Note: Sending full content to backend for chunking/embedding (Stephen's role)
-            uploadedAt: Date.now()
-          });
-        }
-      };
-      reader.readAsText(file); // Reading as text for simplicity (backend PDF parsing is complex)
+    try {
+      for (const file of files) {
+        await uploadDocument(file);
+      }
+      await fetchData();
+    } catch (error) {
+      console.error("Failed to upload document:", error);
+    } finally {
+      e.target.value = "";
+      setActiveTab("chat");
+      setIsProcessing(false);
     }
-    
-    // Wait a moment for async uploads and re-fetch the document list
-    setTimeout(fetchData, 500); 
-    e.target.value = "";
-    setActiveTab("chat");
-    setIsProcessing(false);
   }
 
   const deleteDocument = async (docId) => {

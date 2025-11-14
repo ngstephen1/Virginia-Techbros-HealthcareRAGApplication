@@ -1,107 +1,89 @@
-import json, glob
-from pathlib import Path
-from typing import List, Dict, Any
-from server.embeddings.wx_adapter import Embedder
-from pymilvus import MilvusClient, DataType
-
-# --- Milvus Configuration ---
-MILVUS_DB_PATH = "data/index/medical_rag.db"
-COLLECTION_NAME = "medical_papers"
-VECTOR_DIMENSION = 768
-import json
 import glob
+import json
+import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
-# Import your NEW, REAL classes
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
 from backend.server.vector.wx_adapter import WatsonEmbedder
 from backend.server.vector.milvus_store import MilvusStore, MILVUS_DB_PATH
 
+MEMORY_INDEX_PATH = Path("backend/data/index/memory_index.json")
+
+
 def load_chunks() -> List[Dict[str, Any]]:
-    """Loads text chunks from the 'chunks' directory."""
-    rows = []
-    # Make sure your current working directory is the project root
+    rows: List[Dict[str, Any]] = []
     for fp in glob.glob("chunks/*.jsonl"):
-        with open(fp, "r") as f:
-            for line in f:
+        with open(fp, "r") as fh:
+            for line in fh:
                 row = json.loads(line)
-                rows.append({
-                    "doc_id": row["doc_id"],
-                    "page": int(row["page"]),
-                    "chunk_id": row["chunk_id"],
-                    "title": row.get("title", ""),
-                    "text": row["text"],
-                })
+                rows.append(
+                    {
+                        "doc_id": row["doc_id"],
+                        "page": int(row["page"]),
+                        "chunk_id": row["chunk_id"],
+                        "title": row.get("title", ""),
+                        "text": row["text"],
+                    }
+                )
     print(f"Found {len(rows)} chunks to process from 'chunks/' folder.")
     return rows
 
-def main():
-    # 1. Load the text chunks from .jsonl files
-    chunks = load_chunks()
-    if not chunks:
-        print("No chunks found in chunks/*.jsonl. Run the ingest script first.")
+
+def write_memory_index(chunks: List[Dict[str, Any]], vecs: List[List[float]]) -> None:
+    items = []
+    for chunk, vec in zip(chunks, vecs):
+        entry = dict(chunk)
+        entry["vec"] = vec
+        items.append(entry)
+    MEMORY_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MEMORY_INDEX_PATH.write_text(json.dumps({"items": items}))
+    print(f"Wrote {len(items)} vectors → {MEMORY_INDEX_PATH}")
+
+
+def upsert_milvus(chunks: List[Dict[str, Any]], vecs: List[List[float]], embedder: WatsonEmbedder) -> None:
+    try:
+        store = MilvusStore(embedder=embedder)
+    except Exception as exc:
+        print(f"Milvus unavailable ({exc}); skipping vector DB upsert.")
         return
 
-    # 2. Initialize the REAL embedder (This gets the IBM token)
-    print("Initializing IBM WatsonEmbedder...")
-    emb = WatsonEmbedder()
+    if store.client is None:
+        print("Milvus client not available; skipping vector DB upsert.")
+        return
 
-    # 3. Vectorize all text chunks in a batch
-    print(f"Embedding {len(chunks)} text chunks with IBM watsonx.ai... (this may take a moment)")
-    texts_to_embed = [c["text"] for c in chunks]
-    vecs = emb.embed_texts(texts_to_embed)
-    print("Text embedding complete.")
+    records = []
+    for chunk, vec in zip(chunks, vecs):
+        payload = dict(chunk)
+        payload["vector"] = vec
+        records.append(payload)
 
-    # 4. Combine chunks with their new vectors
-    data_to_insert = []
-    for c, v in zip(chunks, vecs):
-        c["vector"] = v  # Add the 'vector' key
-        data_to_insert.append(c)
+    print(f"Inserting {len(records)} vectors into Milvus at {MILVUS_DB_PATH}...")
+    store.upsert(records)
+    print("Milvus upsert complete.")
 
-    # 5. Initialize the REAL vector store
-    # This will create/connect to 'data/index/medical_rag.db'
-    print(f"Initializing MilvusStore at {MILVUS_DB_PATH}...")
-    # We pass the embedder so the store knows the vector dimension
-    store = MilvusStore(embedder=emb) 
-    
-    # 6. Insert the vectorized data into Milvus
-    print(f"Inserting {len(data_to_insert)} vectors into Milvus...")
-    store.upsert(data_to_insert)
-    
-    print(f"--- Successfully wrote {len(data_to_insert)} vectors to Milvus! ---")
 
-if __name__ == "__main__":
-    # Ensure the 'data/index' directory exists
-    Path(MILVUS_DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-    main()
-OUT = Path("data/index/memory_index.json")
-
-def load_chunks() -> List[Dict[str,Any]]:
-    rows=[]
-    for fp in glob.glob("chunks/*.jsonl"):
-        with open(fp, "r") as f:
-            for line in f:
-                row = json.loads(line)
-                rows.append({
-                    "doc_id": row["doc_id"],
-                    "page": int(row["page"]),
-                    "chunk_id": row["chunk_id"],
-                    "title": row.get("title",""),
-                    "text": row["text"],
-                })
-    return rows
-
-def main():
+def main() -> None:
     chunks = load_chunks()
     if not chunks:
-        print("No chunks found in chunks/*.jsonl"); return
-    emb = Embedder()
-    vecs = emb.embed_texts([c["text"] for c in chunks])
-    items=[]
-    for c,v in zip(chunks, vecs):
-        it=dict(c); it["vec"]=v; items.append(it)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"items": items}))
-    print(f"Wrote {len(items)} vectors → {OUT}")
+        print("No chunks found in chunks/*.jsonl. Run run_chunker.py first.")
+        return
+
+    print("Initializing WatsonEmbedder...")
+    embedder = WatsonEmbedder()
+
+    texts = [c["text"] for c in chunks]
+    print(f"Embedding {len(texts)} text chunks...")
+    vectors = embedder.embed_texts(texts)
+    print("Embedding complete.")
+
+    write_memory_index(chunks, vectors)
+    upsert_milvus(chunks, vectors, embedder)
+
+
 if __name__ == "__main__":
+    Path(MILVUS_DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     main()

@@ -5,38 +5,44 @@ import { API_BASE_URL } from './constants.jsx';
 // --- Document Handlers ---
 
 export async function getDocuments() {
-    // In a real application, this would fetch the user's document list.
-    const response = await fetch(`${API_BASE_URL}/documents`);
-    if (!response.ok) throw new Error('Failed to fetch documents');
-    return response.json();
+    try {
+        const response = await fetch(`${API_BASE_URL}/documents`);
+        if (!response.ok) throw new Error('Failed to fetch documents');
+        return response.json();
+    } catch (err) {
+        console.warn("Documents endpoint unavailable, returning empty list.", err);
+        return [];
+    }
 }
 
-export async function uploadDocument(fileData) {
-    // fileData is expected to be { name, content, uploadedAt }
-    const response = await fetch(`${API_BASE_URL}/documents`, {
+export async function uploadDocument(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(`${API_BASE_URL}/ingest_document`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fileData),
+        body: formData,
     });
     if (!response.ok) throw new Error('Failed to upload document');
     return response.json();
 }
 
 export async function deleteDocumentApi(docId) {
-    const response = await fetch(`${API_BASE_URL}/documents/${docId}`, {
-        method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete document');
-    return response.json();
+    // Backend does not yet expose deletion; return noop to keep UI consistent.
+    console.warn(`Delete document ${docId} not supported on backend yet.`);
+    return { ok: true };
 }
 
 // --- Conversation Handlers ---
 
 export async function getConversations() {
-    // Fetches list of conversations for the History Sidebar.
-    const response = await fetch(`${API_BASE_URL}/conversations`);
-    if (!response.ok) throw new Error('Failed to fetch conversations');
-    return response.json();
+    try {
+        const response = await fetch(`${API_BASE_URL}/conversations`);
+        if (!response.ok) throw new Error('Failed to fetch conversations');
+        return response.json();
+    } catch (err) {
+        console.warn("Conversations endpoint unavailable, returning empty list.", err);
+        return [];
+    }
 }
 
 export async function startNewConversationApi(title) {
@@ -80,23 +86,16 @@ export async function postUserMessage(conversationId, content) {
 // --- CORE AI/RAG QUERY HANDLER ---
 
 export async function sendRAGQuery(conversationId, userQuery, documentNames) {
-    // This calls the main endpoint that triggers the RAG pipeline (Stephen/Tia/Granite).
-    const response = await fetch(`${API_BASE_URL}/query`, {
+    const response = await fetch(`${API_BASE_URL}/ingest_user_query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            conversationId,
-            query: userQuery,
-            documents: documentNames, // Used by the backend RAG pipeline for context/citation
-        }),
+        body: JSON.stringify({ prompt: userQuery, top_k: 5 }),
     });
 
     if (!response.ok) {
         throw new Error(`AI Request Failed: ${response.status} ${response.statusText}`);
     }
 
-    // Since streaming is complex via simple fetch, we assume the backend waits for 
-    // the full Granite response and sends the final, cited text back at once.
     const data = await response.json();
-    return data.response; // Expected to return the full, cited response string.
+    return data;
 }
