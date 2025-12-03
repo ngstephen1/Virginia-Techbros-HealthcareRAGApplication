@@ -814,7 +814,7 @@ Build Virginia-Techbros-HealthcareRAGApplication from the source and install dep
 **Using [docker](https://www.docker.com/):**
 
 ```sh
-❯ docker build -t ngstephen1/Virginia-Techbros-HealthcareRAGApplication .
+❯ docker build -t Jacobtent/Virginia-Techbros-HealthcareRAGApplication .
 ```
 **Using [npm](https://www.npmjs.com/):**
 
@@ -879,9 +879,9 @@ pytest
 
 ## Contributing
 
-- **💬 [Join the Discussions](https://github.com/ngstephen1/Virginia-Techbros-HealthcareRAGApplication/discussions)**: Share your insights, provide feedback, or ask questions.
-- **🐛 [Report Issues](https://github.com/ngstephen1/Virginia-Techbros-HealthcareRAGApplication/issues)**: Submit bugs found or log feature requests for the `Virginia-Techbros-HealthcareRAGApplication` project.
-- **💡 [Submit Pull Requests](https://github.com/ngstephen1/Virginia-Techbros-HealthcareRAGApplication/blob/main/CONTRIBUTING.md)**: Review open PRs, and submit your own PRs.
+- **💬 [Join the Discussions](https://github.com/Jacobtent/Virginia-Techbros-HealthcareRAGApplication)**: Share your insights, provide feedback, or ask questions.
+- **🐛 [Report Issues](https://github.com/Jacobtent/Virginia-Techbros-HealthcareRAGApplication/issues)**: Submit bugs found or log feature requests for the `Virginia-Techbros-HealthcareRAGApplication` project.
+- **💡 [Submit Pull Requests](https://github.com/Jacobtent/Virginia-Techbros-HealthcareRAGApplication/pulls)**: Review open PRs, and submit your own PRs.
 
 <details closed>
 <summary>Contributing Guidelines</summary>
@@ -889,7 +889,7 @@ pytest
 1. **Fork the Repository**: Start by forking the project repository to your github account.
 2. **Clone Locally**: Clone the forked repository to your local machine using a git client.
    ```sh
-   git clone https://github.com/ngstephen1/Virginia-Techbros-HealthcareRAGApplication
+   git clone https://github.com/Virginia-Techbros-HealthcareRAGApplication
    ```
 3. **Create a New Branch**: Always work on a new branch, giving it a descriptive name.
    ```sh
@@ -912,7 +912,7 @@ pytest
 <summary>Contributor Graph</summary>
 <br>
 <p align="left">
-   <a href="https://github.com{/ngstephen1/Virginia-Techbros-HealthcareRAGApplication/}graphs/contributors">
+   <a href="https://github.com/Jacobtent/Virginia-Techbros-HealthcareRAGApplication">
       <img src="https://contrib.rocks/image?repo=ngstephen1/Virginia-Techbros-HealthcareRAGApplication">
    </a>
 </p>
